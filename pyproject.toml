@@ -1,0 +1,18 @@
+[project]
+name = "omados"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10.4"
+dependencies = [
+    "einops>=0.8.2",
+    "numpy>=2.2.6",
+    "torch>=2.11.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "pytest>=9.0.2",
+    "ruff>=0.15.8",
+]
