@@ -1,0 +1,2 @@
+# omaDOS
+Differentially Optimized Schafkopf
