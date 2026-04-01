@@ -1,6 +1,5 @@
 import torch
 
-
 class Stich:
     def __init__(self):
         # karten: 8 Stiche, 4 Spieler, 32 Karten (one hot). Noch nicht gespielte Stiche sind mit 0 gefüllt. Starten immer beim Rauskommer des Stiches
