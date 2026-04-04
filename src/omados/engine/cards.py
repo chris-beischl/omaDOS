@@ -111,6 +111,9 @@ def _create_mask(condition_func) -> Cards:
 SUIT_MASKS = {suit: _create_mask(lambda c: c.startswith(suit.value)) for suit in Suit}
 RANK_MASKS = {rank: _create_mask(lambda c: c.endswith(rank.value)) for rank in Rank}
 
+SUIT_MATRIX = torch.stack([SUIT_MASKS[s].cards for s in Suit])
+SUIT_LOOKUP = torch.argmax(SUIT_MATRIX.to(torch.int8), dim=0).to(torch.int64) # takes a bit too much space but since torch uses int64 internally, we just use those
+
 # 5. Export explicit constants for clean module-level imports and easy bitwise logic
 SCHELLEN = SUIT_MASKS[Suit.Schellen]
 GRAS = SUIT_MASKS[Suit.Gras]
@@ -125,3 +128,5 @@ KOENIGE = RANK_MASKS[Rank.King]
 NEUNER = RANK_MASKS[Rank.Nine]
 ACHTER = RANK_MASKS[Rank.Eight]
 SIEBENER = RANK_MASKS[Rank.Seven]
+
+NO_CARDS = Cards([])

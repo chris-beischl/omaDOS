@@ -20,7 +20,6 @@ class Spielart(Enum):
         else: 
             raise ValueError(f"Invalid Spielart: {self}")
 
-
 def get_cards() -> Cards: 
     card_indices = torch.randperm(32)
     player_cards = torch.zeros((4, 32), dtype=torch.bool)
@@ -71,10 +70,4 @@ def get_playable_suits(player_cards: Cards, trumpf_cards: Cards):
         if (not (suit_cards & ASSE).any()) and (suit_cards & ~ASSE).any(): 
             playable_suits.append(suit)
     
-    return playable_suits    
-    
-    # ass_farben_auf_hand = torch.zeros(4, dtype=torch.bool)
-    # ass_farben_auf_hand[farb_indices[farb_cards & assen].unique()] = True
-    
-    # farb_karten_ohne_ass = torch.zeros(4, dtype=torch.bool)
-    # farb_karten_ohne_ass[farb_indices[farb_cards & ~assen].unique()] = True
+    return playable_suits
