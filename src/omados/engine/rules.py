@@ -1,6 +1,7 @@
 import torch
 from .cards import Cards, SUIT_MASKS, ASSE, SUIT_LOOKUP, CARD_POINTS, INDEX_TO_SUIT, Suit
 from .modes import GameContract
+from .tricks import Trick
 
 def get_legal_moves(
     player_hand: Cards, 
@@ -31,7 +32,7 @@ def get_legal_moves(
         playable = player_hand & trumpf
     else:
         lead_suit = INDEX_TO_SUIT[lead_card_idx]
-        # Must play same suit, but only the 'Farbe' part (not trumps)
+         # Must play same suit, but only the 'Farbe' part (not trumps)
         playable = player_hand & SUIT_MASKS[lead_suit] & ~trumpf
     
     # if player did not ran away and the lead suit (non-trumpf) is of the rufsau suit, they can only play that.
@@ -48,39 +49,70 @@ def get_legal_moves(
     
     return legal_moves
 
-# TODO: totally rework
-def determine_winner(trick_cards_idx: list[int], leader_id: int, contract: GameContract) -> int:
-    """Returns the absolute player_id (0-3) who won the trick."""
-    trumpf = contract.trumpf_cards
-    
-    best_card_idx = trick_cards_idx[0]
-    winner_local_idx = 0
-    
-    lead_card = trick_cards_idx[0]
-    is_lead_trumpf = trumpf[lead_card]
-    lead_suit = INDEX_TO_SUIT[lead_card]
 
-    for i in range(1, 4):
-        current_card = trick_cards_idx[i]
+from .cards import DECK, INDEX_TO_SUIT, Rank
+
+# Define the absolute hierarchy for non-trump cards (A > 10 > K > O > U > 9 > 8 > 7)
+# Higher number = stronger card.
+RANK_HIERARCHY = {
+    "A": 7, "10": 6, "K": 5, "O": 4, "U": 3, "9": 2, "8": 1, "7": 0
+}
+
+# Precompute for O(1) lookup
+CARD_STRENGTH = tuple(RANK_HIERARCHY[card[1:] if not card.startswith("10") else "10"] for card in DECK)
+
+def determine_winner(trick: Trick, contract: GameContract) -> int: 
+    """
+    Determines the winner of a trick (complete or incomplete).
+    
+    1. If trumps were played: The lowest index in DECK (strongest trump) wins.
+    2. If no trumps played: The highest rank of the lead suit wins.
+    """
+    if not trick.card_indices:
+        raise ValueError("Cannot determine a winner for an empty trick.")
+
+    # Get the indices of cards played and the corresponding player IDs
+    played_indices = trick.card_indices
+    player_ids = trick.player_ids[:len(played_indices)]
+
+    # 1. Check for Trumps
+    # Create a mask of which played cards are trumps
+    is_trump_mask = [contract.trumpf_cards[idx].item() for idx in played_indices]
+    
+    if any(is_trump_mask):
+        # Filter played cards to only those that are trumps
+        # We want the one with the LOWEST index in DECK (Obers < Unters < Herz)
+        best_idx = 999
+        winner_id = -1
         
-        # 1. If current is trump and best wasn't -> current wins
-        if trumpf[current_card] and not trumpf[best_card_idx]:
-            best_card_idx = current_card
-            winner_local_idx = i
-        # 2. If both are trump -> higher index in deck wins (since O/U/H7 are early in your DECK)
-        elif trumpf[current_card] and trumpf[best_card_idx]:
-            if current_card < best_card_idx: # Your DECK order: Obers(0-3), Unters(4-7)...
-                best_card_idx = current_card
-                winner_local_idx = i
-        # 3. If neither is trump -> must match lead suit and be higher rank (lower index)
-        elif not trumpf[current_card] and not trumpf[best_card_idx]:
-            if INDEX_TO_SUIT[current_card] == lead_suit and current_card < best_card_idx:
-                best_card_idx = current_card
-                winner_local_idx = i
+        for i, is_trump in enumerate(is_trump_mask):
+            if is_trump:
+                card_idx = played_indices[i]
+                if card_idx < best_idx:
+                    best_idx = card_idx
+                    winner_id = player_ids[i]
+        return winner_id
 
-    return (leader_id + winner_local_idx) % 4
+    # 2. No Trumps Played: Lead Suit Logic
+    lead_card_idx = played_indices[0]
+    lead_suit = INDEX_TO_SUIT[lead_card_idx]
+    
+    print(CARD_STRENGTH)
+    
+    best_strength = -1
+    winner_id = -1
 
-# TODO: check with all rules!
+    for i, card_idx in enumerate(played_indices):
+        # Only cards matching the lead suit can win
+        if INDEX_TO_SUIT[card_idx] == lead_suit:
+            strength = CARD_STRENGTH[card_idx]
+            if strength > best_strength:
+                best_strength = strength
+                winner_id = player_ids[i]
+                
+    return winner_id
+
+
 def get_playable_suits(player_hand: Cards,  trumpf_cards: Cards): 
     # one can only play if they have the color they want to play and not the corresponding ace
     non_trumpf_cards : Cards = player_hand & ~trumpf_cards
