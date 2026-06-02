@@ -1,11 +1,14 @@
 import pytest
-from omados.engine.cards import Cards, Suit, OBER, UNTER, HERZ
+
+from omados.engine.cards import HERZ, OBER, UNTER, Cards, Suit
 from omados.engine.rules import get_playable_suits
+
 
 @pytest.fixture
 def sauspiel_trumpf():
     """Standard Sauspiel Trumpf: All Obers, all Unters, and all Hearts."""
     return OBER | UNTER | HERZ
+
 
 def test_sauspiel_standard_eligibility(sauspiel_trumpf):
     """
@@ -15,11 +18,12 @@ def test_sauspiel_standard_eligibility(sauspiel_trumpf):
     # 4 Trumps + 2 Eichel + 2 Gras = 8 cards
     hand = Cards(["EO", "GO", "EU", "HU", "E7", "E8", "G10", "GK"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert Suit.Eichel in suits
     assert Suit.Gras in suits
     assert Suit.Schellen not in suits  # No Schellen cards held
-    assert Suit.Herz not in suits      # Herz is Trump, never a 'suit' in Sauspiel
+    assert Suit.Herz not in suits  # Herz is Trump, never a 'suit' in Sauspiel
+
 
 def test_sauspiel_blocked_by_owning_the_ace(sauspiel_trumpf):
     """
@@ -28,9 +32,10 @@ def test_sauspiel_blocked_by_owning_the_ace(sauspiel_trumpf):
     """
     hand = Cards(["EO", "GO", "EU", "HU", "EA", "E7", "G7", "G8"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert Suit.Eichel not in suits  # Blocked: player has the Ace
-    assert Suit.Gras in suits        # Valid: has cards, no Ace
+    assert Suit.Gras in suits  # Valid: has cards, no Ace
+
 
 def test_sauspiel_besetzt_ace_only(sauspiel_trumpf):
     """
@@ -40,8 +45,9 @@ def test_sauspiel_besetzt_ace_only(sauspiel_trumpf):
     # 7 Trumps + 1 Ace = 8 cards
     hand = Cards(["EO", "GO", "HO", "SO", "EU", "GU", "HU", "SA"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert suits == []
+
 
 def test_sauspiel_no_suit_cards(sauspiel_trumpf):
     """
@@ -50,8 +56,9 @@ def test_sauspiel_no_suit_cards(sauspiel_trumpf):
     """
     hand = Cards(["EO", "GO", "HO", "SO", "EU", "GU", "HU", "SU"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert suits == []
+
 
 def test_sauspiel_mixed_hand_all_aces(sauspiel_trumpf):
     """
@@ -60,32 +67,35 @@ def test_sauspiel_mixed_hand_all_aces(sauspiel_trumpf):
     """
     hand = Cards(["EO", "GO", "HO", "EU", "GU", "EA", "GA", "SA"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert suits == []
+
 
 def test_sauspiel_many_cards_no_ace(sauspiel_trumpf):
     """
     Result: Schellen is callable.
     """
-    # Let's fix that hand to be exactly 8: 
+    # Let's fix that hand to be exactly 8:
     # 3 Trumps (EO, GO, HO) + 5 Schellen (10, K, 9, 8, 7)
     hand = Cards(["EO", "GO", "HO", "S10", "SK", "S9", "S8", "S7"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert suits == [Suit.Schellen]
-    
+
+
 def test_herz_is_never_playable_full_heart_hand(sauspiel_trumpf):
     """
-    Even if a player has every single Heart card (Ace through 7), 
+    Even if a player has every single Heart card (Ace through 7),
     none of them are 'suit' cards in Sauspiel.
     """
     # 6 Hearts (non-Ober/Unter) + 2 Obers = 8 cards
     hand = Cards(["HA", "H10", "HK", "H9", "H8", "H7", "EO", "GO"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     # Logic: non_trumpf_cards will be empty because all 8 cards are in sauspiel_trumpf.
     assert Suit.Herz not in suits
     assert suits == []
+
 
 def test_herz_is_never_playable_missing_ace(sauspiel_trumpf):
     """
@@ -95,11 +105,12 @@ def test_herz_is_never_playable_missing_ace(sauspiel_trumpf):
     # 5 Hearts (no Ace) + 2 Obers + 1 Eichel 7
     hand = Cards(["H10", "HK", "H9", "H8", "H7", "EO", "GO", "E7"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     # Eichel 7 is the only non-trump card.
     # It meets the criteria: Have E7, don't have EA.
     assert Suit.Herz not in suits
     assert Suit.Eichel in suits
+
 
 def test_herz_ace_as_only_heart(sauspiel_trumpf):
     """
@@ -108,8 +119,9 @@ def test_herz_ace_as_only_heart(sauspiel_trumpf):
     # Herz Ace + 7 other trumps (Obers/Unters)
     hand = Cards(["HA", "EO", "GO", "HO", "SO", "EU", "GU", "HU"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert suits == []
+
 
 def test_herz_ignored_with_other_callable_suits(sauspiel_trumpf):
     """
@@ -119,7 +131,7 @@ def test_herz_ignored_with_other_callable_suits(sauspiel_trumpf):
     # 4 Hearts + 2 Eichel (E7, E8) + 2 Gras (G7, G8)
     hand = Cards(["H10", "HK", "H9", "H8", "E7", "E8", "G7", "G8"])
     suits = get_playable_suits(hand, sauspiel_trumpf)
-    
+
     assert Suit.Herz not in suits
     assert Suit.Eichel in suits
     assert Suit.Gras in suits
