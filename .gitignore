@@ -4,6 +4,6 @@ __pycache__/
 
 .vscode/
 
-# caches: 
+# caches:
 .mypy_cache
 .ruff_cache

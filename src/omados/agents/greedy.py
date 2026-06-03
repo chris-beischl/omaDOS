@@ -8,7 +8,7 @@ from .base import BaseAgent
 
 
 class GreedyAgent(BaseAgent):
-    def decide_bidding(self, hand) -> GameContract | None:
+    def decide_bidding(self, hand: Cards) -> GameContract | None:
         contract = GameModeFactory.create_sauspiel(
             caller_id=self.player_id, suit=Suit.Eichel
         )
