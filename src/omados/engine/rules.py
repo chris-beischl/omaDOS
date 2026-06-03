@@ -3,6 +3,67 @@ from .modes import GameContract
 from .tricks import Trick
 
 
+def is_sauspiel(contract: GameContract) -> bool:
+    return contract.spielart == "Sauspiel"
+
+
+def has_rufsau(player_hand: Cards, contract: GameContract) -> bool:
+    """Checks if the player has the Rufsau card in their hand."""
+    return (player_hand & contract.rufsau).any()
+
+
+def can_run_away(
+    player_hand: Cards,
+    lead_card_idx: int | None,
+    contract: GameContract,
+    ran_away: bool,
+) -> bool:
+    """Determines if the player can 'run away' from the Rufsau suit."""
+    # Player must be the trick lead and not have already run away
+    if (lead_card_idx is not None) or ran_away:
+        return False
+
+    # Game must be Sauspiel
+    if contract.spielart != "Sauspiel":
+        return False
+
+    # Player must have at least four cards of the Rufsau suit to be able to run away
+    assert contract.rufsau_suit is not None, "Rufsau suit must be defined for Sauspiel."
+    rufsau_suit_cards = player_hand & SUIT_MASKS[contract.rufsau_suit]
+    return rufsau_suit_cards.sum().item() >= 4
+
+
+def is_running_away(
+    player_hand: Cards,
+    lead_card_idx: int | None,
+    played_card_idx: int,
+    contract: GameContract,
+    ran_away: bool,
+) -> bool:
+    """Checks if the player is 'running away' from the Rufsau suit by playing a card
+    that is not of the Rufsau suit."""
+
+    if lead_card_idx is not None:
+        return False  # Not the lead player, so can't be running away
+
+    if not is_sauspiel(contract):
+        return False  # Not a Sauspiel game, so this rule doesn't apply
+
+    if ran_away:
+        return False  # Player has already run away, so this check is irrelevant
+
+    if not has_rufsau(player_hand, contract):
+        return False  # Player doesn't have the Rufsau card, so they can't run away
+
+    if not can_run_away(player_hand, lead_card_idx, contract, ran_away=ran_away):
+        return False  # Player is not allowed to run away, so this check is irrelevant
+
+    return (
+        INDEX_TO_SUIT[played_card_idx] == contract.rufsau_suit
+        and not contract.rufsau[played_card_idx].item()
+    )
+
+
 def get_legal_moves(
     player_hand: Cards,
     lead_card_idx: int | None,
@@ -13,20 +74,20 @@ def get_legal_moves(
     trumpf = contract.trumpf_cards
 
     # 1. Lead Player (First in trick)
+    # check if the player can 'run away' from the Rufsau suit (Sauspiel specific rule)
     if lead_card_idx is None:
-        # Standard Schafkopf: If you have the 'Rufsau' (Ace),
-        # you cannot lead the Rufsau suit with a non-ace unless you have 4+ of them.
-        if (contract.rufsau & player_hand).any() and not ran_away:
+        if (
+            is_sauspiel(contract)
+            and has_rufsau(player_hand, contract)
+            and (not can_run_away(player_hand, lead_card_idx, contract, ran_away))
+            and (not ran_away)
+        ):
             assert contract.rufsau_suit is not None, (
                 "Rufsau suit must be defined if Rufsau card is in hand."
             )
-            # if (contract.rufsau & player_hand).any():
-            rufsau_suit_cards = player_hand & SUIT_MASKS[contract.rufsau_suit]
-            if rufsau_suit_cards.sum() < 4:
-                return (
-                    player_hand & ~SUIT_MASKS[contract.rufsau_suit]
-                ) | contract.rufsau
-        return player_hand
+            return (player_hand & ~SUIT_MASKS[contract.rufsau_suit]) | contract.rufsau
+        else:
+            return player_hand
 
     # 2. Follower Logic
     is_lead_trumpf = trumpf[lead_card_idx]
@@ -102,8 +163,6 @@ def determine_winner(trick: Trick, contract: GameContract) -> int:
     # 2. No Trumps Played: Lead Suit Logic
     lead_card_idx = played_indices[0]
     lead_suit = INDEX_TO_SUIT[lead_card_idx]
-
-    print(CARD_STRENGTH)
 
     best_strength = -1
     winner_id = -1

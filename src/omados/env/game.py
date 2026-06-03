@@ -35,14 +35,12 @@ class SchafkopfEnv:
         current_leader = (self.dealer_id + 1) % 4
 
         for _ in range(8):
-            # trick_cards = []
             trick = Trick(lead_player_id=current_leader)
 
             for i in range(4):
                 pid = (current_leader + i) % 4
 
                 # Rules engine generates legal moves
-                # lead_card = trick_cards[0] if i > 0 else -1
                 legal = get_legal_moves(hands[pid], trick.lead_card, contract)
 
                 # Agent makes a choice
@@ -55,13 +53,11 @@ class SchafkopfEnv:
                 card_idx = self.agents[pid].play_card(obs)
 
                 # Update state
-                # trick_cards.append(card_idx)
                 trick.add_card(card_idx)
                 hands[pid].cards[card_idx] = False  # Remove card from hand
 
             # Determine winner and points
             winner_id = determine_winner(trick, contract)
-            # winner_id = determine_winner(trick_cards, current_leader, contract)
             self.scores[winner_id] += trick.points
 
             # Notify agents so they can update their memory
