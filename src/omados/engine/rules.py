@@ -102,7 +102,8 @@ def get_legal_moves(
 
     # if player did not ran away and the lead suit (non-trumpf) is of the rufsau suit,
     # they can only play that.
-    if not ran_away:
+    # if not ran_away:
+    if not ran_away and is_sauspiel(contract) and has_rufsau(player_hand, contract):
         if playable.any():
             assert contract.rufsau_suit is not None, (
                 "Rufsau suit must be defined if there are playable cards."
