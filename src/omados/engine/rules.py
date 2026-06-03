@@ -1,6 +1,10 @@
+import logging
+
 from .cards import ASSE, DECK, INDEX_TO_SUIT, SUIT_MASKS, Cards, Suit
 from .modes import GameContract
 from .tricks import Trick
+
+logger = logging.getLogger(__name__)
 
 
 def is_sauspiel(contract: GameContract) -> bool:

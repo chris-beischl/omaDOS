@@ -1,9 +1,12 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 from omados.engine.cards import Cards
 from omados.engine.modes import GameContract
 from omados.engine.tricks import Trick
+
+logger = logging.getLogger(__name__)
 
 
 class BaseAgent(ABC):

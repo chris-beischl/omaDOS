@@ -1,3 +1,5 @@
+import logging
+
 import torch
 
 from omados.agents.base import BaseAgent
@@ -5,6 +7,8 @@ from omados.engine.cards import DECK, Cards
 from omados.engine.modes import GameContract
 from omados.engine.rules import determine_winner, get_legal_moves, is_running_away
 from omados.engine.tricks import Trick
+
+logger = logging.getLogger(__name__)
 
 
 class SchafkopfEnv:
@@ -37,24 +41,24 @@ class SchafkopfEnv:
         if not contract:  # Everyone passed -> Ramsch (logic omitted for brevity)
             return None
 
-        print(contract)
+        logger.debug(contract)
 
         # 3. Playing (8 Tricks)
         current_leader = (self.dealer_id + 1) % 4
 
         for trick_id in range(8):
-            print(f"Trick {trick_id + 1}, Leader")
+            logger.debug(f"Trick {trick_id + 1}, Leader")
             trick = Trick(lead_player_id=current_leader)
 
             for i in range(4):
                 pid = (current_leader + i) % 4
-                print(f"\tPlayer {pid} \tHand: {hands[pid]}")
+                logger.debug(f"\tPlayer {pid} \tHand: {hands[pid]}")
 
                 # Rules engine generates legal moves
                 legal = get_legal_moves(
                     hands[pid], trick.lead_card, contract, ran_away[pid]
                 )
-                print(f"\t\t\tLegal Moves: {legal}")
+                logger.debug(f"\t\t\tLegal Moves: {legal}")
                 # Agent makes a choice
                 obs = {
                     "hand": hands[pid],
@@ -74,7 +78,7 @@ class SchafkopfEnv:
                 if is_running_away_flag:
                     ran_away[pid] = True
 
-                print(f"\t\t\tPlayed Card: {DECK[card_idx]}")
+                logger.debug(f"\t\t\tPlayed Card: {DECK[card_idx]}")
 
                 # Update state
                 trick.add_card(card_idx)
@@ -82,19 +86,19 @@ class SchafkopfEnv:
 
             # Determine winner and points
             winner_id = determine_winner(trick, contract)
-            print()
-            print(f"\tTrick: \t\t{[DECK[idx] for idx in trick.card_indices]}")
-            print(f"\tWinner: \t{winner_id}")
-            print(f"\tTrick Points: \t{trick.points}")
+            logger.debug("")
+            logger.debug(f"\tTrick: \t\t{[DECK[idx] for idx in trick.card_indices]}")
+            logger.debug(f"\tWinner: \t{winner_id}")
+            logger.debug(f"\tTrick Points: \t{trick.points}")
             self.scores[winner_id] += trick.points
-            print()
-            print(f"\tScores: \t{self.scores}")
+            logger.debug("")
+            logger.debug(f"\tScores: \t{self.scores}")
 
             # Notify agents so they can update their memory
             for a in self.agents:
                 a.observe_trick_results(trick, winner_id)
 
             current_leader = winner_id
-            print("-" * 50)
+            logger.debug("-" * 50)
 
         return self.scores, contract

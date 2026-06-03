@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from omados.engine.cards import CARD_POINTS, Cards, Suit
@@ -5,6 +6,8 @@ from omados.engine.modes import GameContract, GameModeFactory
 from omados.engine.rules import get_playable_suits
 
 from .base import BaseAgent
+
+logger = logging.getLogger(__name__)
 
 
 class GreedyAgent(BaseAgent):

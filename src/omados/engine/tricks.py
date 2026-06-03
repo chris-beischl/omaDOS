@@ -1,7 +1,11 @@
+import logging
+
 import torch
 
 from .cards import CARD_POINTS, CARD_TO_INDEX, DECK, Cards
 from .modes import GameContract
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: rework internal logic to more heavily utilize tensors?

@@ -1,9 +1,12 @@
+import logging
 from collections.abc import Callable
 from enum import Enum
 from functools import partial
 
 import torch
 from torch import Tensor
+
+logger = logging.getLogger(__name__)
 
 
 # 1. Use Enums for Suits (Farben) and Ranks (Values)

@@ -1,6 +1,9 @@
+import logging
 from dataclasses import dataclass
 
 from .cards import ASSE, HERZ, NO_CARDS, OBER, SUIT_MASKS, UNTER, Cards, Suit
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
