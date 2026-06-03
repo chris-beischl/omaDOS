@@ -7,7 +7,7 @@ def test_sauspiel_lead_can_run_away(sauspiel_eichel, rufsau_hand):
     If lead player has 4+ cards of the called suit (including Ace),
     they are allowed to lead a small card of that suit (Davonlaufen).
     """
-    legal = get_legal_moves(rufsau_hand, lead_card_idx=-1, contract=sauspiel_eichel)
+    legal = get_legal_moves(rufsau_hand, lead_card_idx=None, contract=sauspiel_eichel)
 
     # Should be able to play everything (including E9, EK, etc.)
     assert legal.sum() == rufsau_hand.sum()
@@ -20,7 +20,7 @@ def test_sauspiel_lead_cannot_run_away_if_short(sauspiel_eichel, rufsau_hand_sho
     of that suit. They must lead the Ace or something else.
     """
     legal = get_legal_moves(
-        rufsau_hand_short, lead_card_idx=-1, contract=sauspiel_eichel
+        rufsau_hand_short, lead_card_idx=None, contract=sauspiel_eichel
     )
 
     # Must NOT contain Eichel King (EK) if it's the called suit and we are short
