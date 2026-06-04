@@ -1,14 +1,14 @@
 import logging
 
 from .cards import ASSE, DECK, INDEX_TO_SUIT, SUIT_MASKS, Cards, Suit
-from .modes import GameContract
+from .modes import GameContract, Spielart
 from .tricks import Trick
 
 logger = logging.getLogger(__name__)
 
 
 def is_sauspiel(contract: GameContract) -> bool:
-    return contract.spielart == "Sauspiel"
+    return contract.spielart == Spielart.Sauspiel
 
 
 def has_rufsau(player_hand: Cards, contract: GameContract) -> bool:
@@ -28,7 +28,7 @@ def can_run_away(
         return False
 
     # Game must be Sauspiel
-    if contract.spielart != "Sauspiel":
+    if contract.spielart != Spielart.Sauspiel:
         return False
 
     # Player must have at least four cards of the Rufsau suit to be able to run away
@@ -202,7 +202,7 @@ def get_playable_suits(player_hand: Cards, trumpf_cards: Cards) -> list[Suit]:
 def get_teams(
     contract: GameContract, hands_at_start: list[Cards]
 ) -> tuple[list[int], list[int]]:
-    if contract.spielart == "Ramsch":
+    if contract.spielart == Spielart.Ramsch:
         raise NotImplementedError("Ramsch scoring not yet implemented")
 
     caller_id = contract.caller_id
@@ -221,3 +221,12 @@ def get_teams(
     opponents = [pid for pid in range(4) if pid not in players]
 
     return (players, opponents)
+
+
+# def can_play_sauspiel(hand: Cards) -> list[Suit]:
+#     ...
+#     # returns callable suits, empty = can't play
+# def can_play_wenz(hand: Cards) -> bool: ...
+# def can_play_farbwenz(hand: Cards) -> list[Suit]: ...
+# def can_play_solo(hand: Cards) -> list[Suit]: ...
+# def can_play_geier(hand: Cards) -> bool: ...
