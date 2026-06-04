@@ -112,11 +112,12 @@ def get_legal_moves(
             assert contract.rufsau_suit is not None, (
                 "Rufsau suit must be defined if there are playable cards."
             )
-            legal_moves = playable & (
-                contract.rufsau | ~SUIT_MASKS[contract.rufsau_suit]
-            )
+            rufsau_suit_no_trumpf = SUIT_MASKS[contract.rufsau_suit] & ~trumpf
+            legal_moves = playable & (contract.rufsau | ~rufsau_suit_no_trumpf)
         else:
             legal_moves = player_hand & ~contract.rufsau
+            if not legal_moves.any():
+                legal_moves = player_hand
     else:
         legal_moves = playable if playable.any() else player_hand
 
@@ -196,3 +197,27 @@ def get_playable_suits(player_hand: Cards, trumpf_cards: Cards) -> list[Suit]:
             playable_suits.append(suit)
 
     return playable_suits
+
+
+def get_teams(
+    contract: GameContract, hands_at_start: list[Cards]
+) -> tuple[list[int], list[int]]:
+    if contract.spielart == "Ramsch":
+        raise NotImplementedError("Ramsch scoring not yet implemented")
+
+    caller_id = contract.caller_id
+
+    if is_sauspiel(contract):
+        rufsau_holder_id = -1
+        for pid in range(4):
+            if has_rufsau(hands_at_start[pid], contract):
+                rufsau_holder_id = pid
+                break
+        assert rufsau_holder_id != -1, "No player holds the Rufsau — invalid deal."
+        players = [caller_id, rufsau_holder_id]
+    else:
+        players = [caller_id]
+
+    opponents = [pid for pid in range(4) if pid not in players]
+
+    return (players, opponents)

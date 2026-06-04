@@ -5,7 +5,13 @@ import torch
 from omados.agents.base import BaseAgent
 from omados.engine.cards import DECK, Cards
 from omados.engine.modes import GameContract
-from omados.engine.rules import determine_winner, get_legal_moves, is_running_away
+from omados.engine.rules import (
+    determine_winner,
+    get_legal_moves,
+    get_teams,
+    is_running_away,
+)
+from omados.engine.scoring import determine_outcome
 from omados.engine.tricks import Trick
 
 logger = logging.getLogger(__name__)
@@ -18,16 +24,19 @@ class SchafkopfEnv:
         self.dealer_id = 0
 
     # TODO: handle Ramsch case
-    def play_game(self) -> tuple[torch.Tensor, GameContract] | None:
+    def play_game(
+        self, hands: list[Cards] | None = None
+    ) -> tuple[torch.Tensor, GameContract] | None:
 
         ran_away = [False] * 4  # Track if each player has 'run away' from Rufsau suit
 
         # 1. Deal (using your randperm logic)
-        card_indices = torch.randperm(32)
-        player_cards = torch.zeros((4, 32), dtype=torch.bool)
-        for i in range(4):
-            player_cards[i, card_indices[i * 8 : (i + 1) * 8]] = True
-        hands = [Cards(player_cards[i]) for i in range(4)]
+        if hands is None:
+            card_indices = torch.randperm(32)
+            player_cards = torch.zeros((4, 32), dtype=torch.bool)
+            for i in range(4):
+                player_cards[i, card_indices[i * 8 : (i + 1) * 8]] = True
+            hands = [Cards(player_cards[i]) for i in range(4)]
 
         # 2. Bidding (Simplified: first one who wants to play wins)
         contract = None
@@ -43,11 +52,17 @@ class SchafkopfEnv:
 
         logger.debug(contract)
 
+        # TODO: Handle Ramsch case where no one bids and everyone plays against each
+        # other
+        player_team, opponent_team = get_teams(contract, hands)
+
         # 3. Playing (8 Tricks)
         current_leader = (self.dealer_id + 1) % 4
 
+        tricks_per_player: dict[int, list[Trick]] = {pid: [] for pid in range(4)}
+        game_scores = torch.zeros(4)
         for trick_id in range(8):
-            logger.debug(f"Trick {trick_id + 1}, Leader")
+            logger.debug(f"Trick {trick_id + 1}")
             trick = Trick(lead_player_id=current_leader)
 
             for i in range(4):
@@ -77,6 +92,9 @@ class SchafkopfEnv:
                 )
                 if is_running_away_flag:
                     ran_away[pid] = True
+                    logger.debug(
+                        f"\t\t\tPlayer {pid} is running away from Rufsau suit!"
+                    )
 
                 logger.debug(f"\t\t\tPlayed Card: {DECK[card_idx]}")
 
@@ -90,9 +108,10 @@ class SchafkopfEnv:
             logger.debug(f"\tTrick: \t\t{[DECK[idx] for idx in trick.card_indices]}")
             logger.debug(f"\tWinner: \t{winner_id}")
             logger.debug(f"\tTrick Points: \t{trick.points}")
-            self.scores[winner_id] += trick.points
+            game_scores[winner_id] += trick.points
+            tricks_per_player[winner_id].append(trick)
             logger.debug("")
-            logger.debug(f"\tScores: \t{self.scores}")
+            logger.debug(f"\tGame Scores: \t{game_scores}")
 
             # Notify agents so they can update their memory
             for a in self.agents:
@@ -100,5 +119,12 @@ class SchafkopfEnv:
 
             current_leader = winner_id
             logger.debug("-" * 50)
+
+        game_outcome = determine_outcome(
+            scores=game_scores,
+            player_team=player_team,
+            tricks_per_player=tricks_per_player,
+        )
+        print(game_outcome)
 
         return self.scores, contract

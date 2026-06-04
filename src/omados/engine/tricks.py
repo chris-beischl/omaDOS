@@ -27,6 +27,10 @@ class Trick:
         # The sequence of players is fixed once the lead player is known
         self.player_ids = [(self.lead_player_id + i) % 4 for i in range(4)]
 
+        # Will be set once the trick is full and the winner is
+        # determined
+        self.winner_id = None
+
         # Populate if initial cards were provided
         if cards:
             for card in cards:
@@ -98,3 +102,11 @@ class Trick:
             f"Trick(lead={self.lead_player_id}, cards={cards_str}, played_by="
             f"{played_by})"
         )
+
+    def set_winner(self, winner_id: int) -> None:
+        """
+        Sets the winner of the trick. Should only be called once the trick is full.
+        """
+        if not self.is_full:
+            raise ValueError("Cannot determine winner of an incomplete trick.")
+        self.winner = winner_id
