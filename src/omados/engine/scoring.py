@@ -44,3 +44,21 @@ def determine_outcome(
         schwarz=schwarz,
         caller_team_points=int(player_team_score.item()),
     )
+
+
+def get_rewards(outcome: GameOutcome) -> tuple[float, float]:
+    """Returns (player_team_reward, opponent_team_reward)."""
+    base = 1.0
+    schneider_bonus = 0.5
+    schwarz_bonus = 0.5
+
+    bonus = 0.0
+    if outcome.schneider:
+        bonus += schneider_bonus
+    if outcome.schwarz:
+        bonus += schwarz_bonus
+
+    if outcome.player_team_won:
+        return (base + bonus, -(base + bonus))
+    else:
+        return (-(base + bonus), base + bonus)

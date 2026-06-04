@@ -11,7 +11,7 @@ from omados.engine.rules import (
     get_teams,
     is_running_away,
 )
-from omados.engine.scoring import determine_outcome
+from omados.engine.scoring import GameOutcome, determine_outcome, get_rewards
 from omados.engine.tricks import Trick
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class SchafkopfEnv:
     # TODO: handle Ramsch case
     def play_game(
         self, hands: list[Cards] | None = None
-    ) -> tuple[torch.Tensor, GameContract] | None:
+    ) -> tuple[GameOutcome, float, float, GameContract] | None:
 
         ran_away = [False] * 4  # Track if each player has 'run away' from Rufsau suit
 
@@ -131,6 +131,11 @@ class SchafkopfEnv:
             player_team=player_team,
             tricks_per_player=tricks_per_player,
         )
-        print(game_outcome)
+        player_team_reward, opponent_team_reward = get_rewards(game_outcome)
+        logger.debug(f"Outcome: {game_outcome}")
+        logger.debug(
+            f"Player team reward: {player_team_reward}, Opponent team reward: ",
+            f"{opponent_team_reward}",
+        )
 
-        return self.scores, contract
+        return game_outcome, player_team_reward, opponent_team_reward, contract
