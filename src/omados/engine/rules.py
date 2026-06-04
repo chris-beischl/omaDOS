@@ -1,7 +1,7 @@
 import logging
 
-from .cards import ASSE, DECK, INDEX_TO_SUIT, SUIT_MASKS, Cards, Suit
-from .modes import GameContract, Spielart
+from .cards import ASSE, DECK, INDEX_TO_SUIT, RANK_MASKS, SUIT_MASKS, Cards, Rank, Suit
+from .modes import GameContract, GameModeFactory, Spielart, get_trumpf_cards
 from .tricks import Trick
 
 logger = logging.getLogger(__name__)
@@ -11,9 +11,14 @@ def is_sauspiel(contract: GameContract) -> bool:
     return contract.spielart == Spielart.Sauspiel
 
 
+def has_card(hand: Cards, suit: Suit, rank: Rank) -> bool:
+    card = SUIT_MASKS[suit] & RANK_MASKS[rank]
+    return (hand & card).any()
+
+
 def has_rufsau(player_hand: Cards, contract: GameContract) -> bool:
-    """Checks if the player has the Rufsau card in their hand."""
-    return (player_hand & contract.rufsau).any()
+    assert contract.rufsau_suit is not None
+    return has_card(player_hand, contract.rufsau_suit, Rank.Ace)
 
 
 def can_run_away(
@@ -223,10 +228,45 @@ def get_teams(
     return (players, opponents)
 
 
-# def can_play_sauspiel(hand: Cards) -> list[Suit]:
-#     ...
-#     # returns callable suits, empty = can't play
-# def can_play_wenz(hand: Cards) -> bool: ...
-# def can_play_farbwenz(hand: Cards) -> list[Suit]: ...
-# def can_play_solo(hand: Cards) -> list[Suit]: ...
-# def can_play_geier(hand: Cards) -> bool: ...
+def can_play_sauspiel(hand: Cards) -> list[Suit]:
+    playable_suits = []
+    trumpf = get_trumpf_cards(Spielart.Sauspiel)
+    for suit in [Suit.Schellen, Suit.Gras, Suit.Eichel]:
+        if has_card(hand, suit, Rank.Ace):
+            continue
+
+        if (hand & SUIT_MASKS[suit] & ~trumpf).any():
+            playable_suits.append(suit)
+    return playable_suits
+
+
+def get_available_games(hand: Cards, caller_id: int) -> list[GameContract]:
+    """Returns all valid GameContracts for the player, ordered lowest to highest rank.
+    Order: Sauspiel < Farbgeier < Farbwenz < Geier < Wenz < Solo (per §2.7.1 + §8.2.2)
+    TODO: handle Sie!
+    """
+    available_games = []
+
+    # Sauspiel (lowest rank)
+    for suit in can_play_sauspiel(hand):
+        available_games.append(GameModeFactory.create_sauspiel(caller_id, suit))
+
+    # Farbgeier
+    for suit in Suit:
+        available_games.append(GameModeFactory.create_geier(caller_id, suit))
+
+    # Farbwenz
+    for suit in Suit:
+        available_games.append(GameModeFactory.create_wenz(caller_id, suit))
+
+    # Geier
+    available_games.append(GameModeFactory.create_geier(caller_id))
+
+    # Wenz
+    available_games.append(GameModeFactory.create_wenz(caller_id))
+
+    # Solo (highest rank, all suits)
+    for suit in Suit:
+        available_games.append(GameModeFactory.create_solo(caller_id, suit))
+
+    return available_games
