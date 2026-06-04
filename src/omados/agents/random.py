@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 import numpy as np
 
@@ -7,7 +6,7 @@ from omados.engine.cards import Cards, Suit
 from omados.engine.modes import GameContract, GameModeFactory
 from omados.engine.rules import get_playable_suits
 
-from .base import BaseAgent
+from .base import BaseAgent, BaseInformationState
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +23,8 @@ class RandomAgent(BaseAgent):
         suit = playable_suits[0]  # Just pick the first playable suit
         return GameModeFactory.create_sauspiel(caller_id=self.player_id, suit=suit)
 
-    def play_card(self, observation: dict[str, Any]) -> int:
-        legal_moves: Cards = observation["legal_moves"]
+    def play_card(self, state: BaseInformationState) -> int:
+        legal_moves: Cards = state.legal_moves
         if legal_moves.cards.sum() == 0:
             print(f"Player {self.player_id} has no legal moves to play.")
         return int(np.random.choice(legal_moves.cards.nonzero().squeeze(dim=1)))

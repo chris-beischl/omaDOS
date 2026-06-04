@@ -2,7 +2,7 @@ import logging
 
 import torch
 
-from omados.agents.base import BaseAgent
+from omados.agents.base import BaseAgent, BaseInformationState
 from omados.engine.cards import DECK, Cards
 from omados.engine.modes import GameContract
 from omados.engine.rules import (
@@ -59,6 +59,7 @@ class SchafkopfEnv:
         # 3. Playing (8 Tricks)
         current_leader = (self.dealer_id + 1) % 4
 
+        tricks: list[Trick] = []
         tricks_per_player: dict[int, list[Trick]] = {pid: [] for pid in range(4)}
         game_scores = torch.zeros(4)
         for trick_id in range(8):
@@ -75,13 +76,18 @@ class SchafkopfEnv:
                 )
                 logger.debug(f"\t\t\tLegal Moves: {legal}")
                 # Agent makes a choice
-                obs = {
-                    "hand": hands[pid],
-                    "current_trick": trick,
-                    "legal_moves": legal,
-                    "contract": contract,
-                }
-                card_idx = self.agents[pid].play_card(obs)
+
+                last_trick = tricks[-1] if len(tricks) else None
+
+                state = BaseInformationState(
+                    hand=hands[pid],
+                    legal_moves=legal,
+                    last_trick=last_trick,
+                    current_trick=trick,
+                    contract=contract,
+                )
+
+                card_idx = self.agents[pid].play_card(state)
 
                 is_running_away_flag = is_running_away(
                     player_hand=hands[pid],

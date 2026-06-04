@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from omados.engine.cards import Cards
@@ -7,6 +8,15 @@ from omados.engine.modes import GameContract
 from omados.engine.tricks import Trick
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BaseInformationState:
+    hand: Cards
+    legal_moves: Cards
+    last_trick: Trick | None
+    current_trick: Trick
+    contract: GameContract
 
 
 class BaseAgent(ABC):
@@ -20,12 +30,7 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    def play_card(self, observation: dict[str, Any]) -> int:
-        """
-        observation contains: 'hand', 'current_trick', 'legal_moves', 'contract'
-        Returns: card_index
-        """
-        pass
+    def play_card(self, state: BaseInformationState) -> int: ...
 
     def observe_trick_results(self, trick: Trick, winner_id: int) -> None:
         """Called by the Env after every trick so the agent can learn/remember."""
