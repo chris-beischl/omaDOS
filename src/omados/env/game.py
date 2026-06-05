@@ -2,13 +2,14 @@ import logging
 
 import torch
 
-from omados.agents.base import BaseAgent, BaseInformationState
+from omados.agents.base import BaseAgent, BaseInformationState, BiddingState
 from omados.engine.cards import DECK, Cards
-from omados.engine.modes import GameContract
+from omados.engine.modes import GameContract, Spielart
 from omados.engine.rules import (
     determine_winner,
     get_legal_moves,
     get_teams,
+    get_viable_spielarten,
     is_running_away,
 )
 from omados.engine.scoring import GameOutcome, determine_outcome, get_rewards
@@ -39,18 +40,10 @@ class SchafkopfEnv:
             hands = [Cards(player_cards[i]) for i in range(4)]
 
         # 2. Bidding (Simplified: first one who wants to play wins)
-        contract = None
-        for i in range(4):
-            pid = (self.dealer_id + 1 + i) % 4
-            decision = self.agents[pid].decide_bidding(hands[pid])
-            if decision:
-                contract = decision
-                break
+        contract = self._run_bidding(hands)
 
         if not contract:  # Everyone passed -> Ramsch (logic omitted for brevity)
             return None
-
-        logger.debug(contract)
 
         # TODO: Handle Ramsch case where no one bids and everyone plays against each
         # other
@@ -134,8 +127,168 @@ class SchafkopfEnv:
         player_team_reward, opponent_team_reward = get_rewards(game_outcome)
         logger.debug(f"Outcome: {game_outcome}")
         logger.debug(
-            f"Player team reward: {player_team_reward}, Opponent team reward: ",
-            f"{opponent_team_reward}",
+            f"Player team reward: {player_team_reward}, Opponent team reward:\
+{opponent_team_reward}",
         )
 
         return game_outcome, player_team_reward, opponent_team_reward, contract
+
+    def _pid_game_order(self) -> list[int]:
+        return [(self.dealer_id + 1 + i) % 4 for i in range(4)]
+
+    def _run_bidding(self, hands: list[Cards]) -> GameContract | None:
+        interested_players, bidding_state = self._phase1_declarations(hands)
+
+        bidders = [pid for pid in self._pid_game_order() if interested_players[pid]]
+        logger.debug(f"[Bidding] Phase 1: players {bidders} want to play")
+
+        # Ramsch / Zusammenwerfen
+        if len(bidders) == 0:
+            logger.debug("[Bidding] No one wants to play → Ramsch")
+            return None
+
+        assert bidding_state is not None
+        if len(bidders) == 1:
+            winner = bidders[0]
+        else:
+            winner, bidding_state = self._phase2_negotiation(
+                hands, interested_players, bidding_state
+            )
+
+        bidding_state.is_challenger = False
+        viable_winner = get_viable_spielarten(hands[winner], bidding_state, 0)
+        contract = self.agents[winner].declare_final_game(
+            hands[winner], bidding_state, viable_winner
+        )
+
+        spielart_value = contract.spielart.value
+        rufsau_suit = contract.rufsau_suit.value if contract.rufsau_suit else ""
+        logger.debug(f"[Bidding] P{winner} declares: {spielart_value} ({rufsau_suit})")
+        return contract
+
+    def _phase1_declarations(
+        self, hands: list[Cards]
+    ) -> tuple[list[bool], BiddingState | None]:
+        declarations: dict[int, bool] = {}
+        interested_players = [False] * 4
+        current_right_holder = -1
+
+        bidding_state = None
+        bidding_position = 0
+        for pid in self._pid_game_order():
+            bidding_state = BiddingState(
+                hand=hands[pid],
+                player_id=pid,
+                dealer_id=self.dealer_id,
+                declarations=declarations,
+                bid_history=[],
+                current_highest_spielart=None,
+                current_right_holder=current_right_holder,
+                is_challenger=False,
+            )
+
+            viable = get_viable_spielarten(hands[pid], bidding_state, bidding_position)
+            declaration = self.agents[pid].wants_to_play(
+                hands[pid], bidding_state, viable
+            )
+            declarations[pid] = declaration
+            interested_players[pid] = declaration
+            if declaration:
+                current_right_holder = pid
+                bidding_position += 1
+            bidding_state.declarations = declarations
+            logger.debug(
+                f"[Phase 1] P{pid}: {'wants to play' if declaration else 'passes'}"
+            )
+
+        return interested_players, bidding_state
+
+    def _phase2_negotiation(
+        self,
+        hands: list[Cards],
+        interested_players: list[bool],
+        bidding_state: BiddingState,
+    ) -> tuple[int, BiddingState]:
+
+        # compute order of bidders
+        bidders = [pid for pid in self._pid_game_order() if interested_players[pid]]
+        assert len(bidders) >= 2, (
+            "For a negotiation, at least two people need intention\
+            to play"
+        )
+
+        defender_idx = 0
+        defender = bidders[defender_idx]
+        winner = defender
+        for challenger_idx, challenger in enumerate(bidders[1:], start=1):
+            logger.debug(
+                f"[Phase 2] P{defender} (defender) vs P{challenger} (challenger)"
+            )
+            winner, bidding_state = self._phase2_bidding(
+                hands, challenger, defender, challenger_idx, defender_idx, bidding_state
+            )
+            logger.debug(f"[Phase 2] Winner: P{winner}")
+            defender = winner
+            defender_idx = defender_idx if winner == defender else challenger_idx
+
+        return winner, bidding_state
+
+    def _phase2_bidding(
+        self,
+        hands: list[Cards],
+        challenger: int,
+        defender: int,
+        challenger_idx: int,
+        defender_idx: int,
+        bidding_state: BiddingState,
+    ) -> tuple[int, BiddingState]:
+
+        while True:
+            # Challenger reveals minimum or folds
+            bidding_state.is_challenger = True
+            bidding_state.player_id = challenger
+            viable_challenger = get_viable_spielarten(
+                hands[challenger], bidding_state, challenger_idx
+            )
+
+            bid: Spielart | None = None
+
+            if challenger == bidding_state.current_right_holder:
+                bid = self.agents[challenger].make_bid(
+                    hands[challenger], bidding_state, viable_challenger
+                )
+            else:
+                bid = self.agents[challenger].make_bid_or_fold(
+                    hands[challenger], bidding_state, viable_challenger
+                )
+
+            if bid is None:
+                logger.debug(f"[Phase 2]   P{challenger} folds → P{defender} wins")
+                bidding_state.bid_history.append((challenger, None))
+                return defender, bidding_state
+
+            logger.debug(f"[Phase 2]   P{challenger} bids: {bid.value}")
+            bidding_state.bid_history.append((challenger, bid))
+            bidding_state.current_highest_spielart = bid
+            bidding_state.current_right_holder = challenger
+
+            # Defender responds
+            bidding_state.is_challenger = False
+            bidding_state.player_id = defender
+            viable_defender = get_viable_spielarten(
+                hands[defender], bidding_state, defender_idx
+            )
+            wants_to_continue = self.agents[defender].wants_to_continue(
+                hands[defender], bidding_state, viable_defender
+            )
+
+            if not wants_to_continue:
+                logger.debug(f"[Phase 2]   P{defender} folds → P{challenger} wins")
+                bidding_state.bid_history.append((defender, None))
+                return challenger, bidding_state
+            else:
+                logger.debug(f"[Phase 2]   P{defender} continues")
+                bidding_state.bid_history.append(
+                    (defender, bidding_state.current_highest_spielart)
+                )
+                bidding_state.current_right_holder = defender

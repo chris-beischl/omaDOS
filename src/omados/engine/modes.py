@@ -18,6 +18,17 @@ class Spielart(Enum):
     Sie = "Sie"
 
 
+SPIELART_RANK: dict[Spielart, int] = {
+    Spielart.Sauspiel: 0,
+    Spielart.Farbgeier: 1,
+    Spielart.Farbwenz: 2,
+    Spielart.Geier: 3,
+    Spielart.Wenz: 4,
+    Spielart.Solo: 5,
+    Spielart.Sie: 6,
+}
+
+
 @dataclass
 class GameContract:
     spielart: Spielart

@@ -1,7 +1,15 @@
 import logging
 
+from omados.agents.base import BiddingState
+
 from .cards import ASSE, DECK, INDEX_TO_SUIT, RANK_MASKS, SUIT_MASKS, Cards, Rank, Suit
-from .modes import GameContract, GameModeFactory, Spielart, get_trumpf_cards
+from .modes import (
+    SPIELART_RANK,
+    GameContract,
+    GameModeFactory,
+    Spielart,
+    get_trumpf_cards,
+)
 from .tricks import Trick
 
 logger = logging.getLogger(__name__)
@@ -270,3 +278,42 @@ def get_available_games(hand: Cards, caller_id: int) -> list[GameContract]:
         available_games.append(GameModeFactory.create_solo(caller_id, suit))
 
     return available_games
+
+
+def get_available_spielarten(hand: Cards) -> list[Spielart]:
+    games = get_available_games(hand, caller_id=0)  # caller_id irrelevant here
+    seen = set()
+    result = []
+    for game in games:
+        if game.spielart not in seen:
+            seen.add(game.spielart)
+            result.append(game.spielart)
+    return result
+
+
+def get_viable_spielarten(
+    hand: Cards, state: BiddingState, bidding_position: int
+) -> list[Spielart]:
+    available_spielarten = get_available_spielarten(hand)
+
+    viable_spielarten = [
+        spielart
+        for spielart in available_spielarten
+        if SPIELART_RANK[spielart] >= bidding_position
+    ]
+
+    if state.current_highest_spielart is not None:
+        if state.is_challenger:
+            viable_spielarten = [
+                s
+                for s in viable_spielarten
+                if SPIELART_RANK[s] > SPIELART_RANK[state.current_highest_spielart]
+            ]
+        else:
+            viable_spielarten = [
+                s
+                for s in viable_spielarten
+                if SPIELART_RANK[s] >= SPIELART_RANK[state.current_highest_spielart]
+            ]
+
+    return viable_spielarten
