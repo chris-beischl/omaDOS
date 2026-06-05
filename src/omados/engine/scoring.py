@@ -25,7 +25,7 @@ def determine_outcome(
 
     player_team_won = player_team_score > 60
     schneider = (
-        (opponent_team_score <= 29) if player_team_won else (player_team_score <= 30)
+        (opponent_team_score <= 30) if player_team_won else (player_team_score <= 30)
     )
 
     player_team_tricks = []
