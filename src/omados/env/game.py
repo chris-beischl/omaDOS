@@ -27,7 +27,7 @@ class SchafkopfEnv:
     # TODO: handle Ramsch case
     def play_game(
         self, hands: list[Cards] | None = None
-    ) -> tuple[GameOutcome, float, float, GameContract] | None:
+    ) -> tuple[GameOutcome, float, float, GameContract, list[int], list[int]] | None:
 
         ran_away = [False] * 4  # Track if each player has 'run away' from Rufsau suit
 
@@ -131,7 +131,14 @@ class SchafkopfEnv:
 {opponent_team_reward}",
         )
 
-        return game_outcome, player_team_reward, opponent_team_reward, contract
+        return (
+            game_outcome,
+            player_team_reward,
+            opponent_team_reward,
+            contract,
+            player_team,
+            opponent_team,
+        )
 
     def _pid_game_order(self) -> list[int]:
         return [(self.dealer_id + 1 + i) % 4 for i in range(4)]
