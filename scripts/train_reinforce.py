@@ -18,12 +18,13 @@ from omados.training.reinforce import train
 logging.basicConfig(level=logging.INFO)
 
 # --- Hyperparameters ---
-N_EPISODES = 10_000
+N_EPISODES = 20_000
 HIDDEN_SIZE = 512
-DEPTH = 3
+DEPTH = 4
 LR = 1e-3
 GAMMA = 1.0
 BASELINE = True
+BATCH_SIZE = 32
 
 # --- Setup ---
 model = PolicyNet(obs_size=OBS_SIZE, hidden_size=HIDDEN_SIZE, depth=DEPTH)
@@ -45,6 +46,7 @@ rewards = train(
     optimizer=optimizer,
     gamma=GAMMA,
     baseline=BASELINE,
+    batch_size=BATCH_SIZE,
 )
 
 # --- Save ---

@@ -17,12 +17,14 @@ def train(
     optimizer: optim.Optimizer,
     gamma: float = 1.0,
     baseline: bool = True,
+    batch_size: int = 32,
 ) -> list[float]:
     """
-    REINFORCE training loop.
+    REINFORCE training loop with batch updates.
 
-    Runs n_episodes games, collects one trajectory per game, and updates
-    the agent's policy after each episode.
+    Collects batch_size episodes before performing a single gradient update.
+    Batching reduces gradient noise, which matters in a high-variance game like
+    Schafkopf where luck dominates individual episodes.
 
     Args:
         agent:       The RLAgent being trained. All other seats are fixed opponents.
@@ -31,12 +33,18 @@ def train(
         optimizer:   PyTorch optimizer for agent.model parameters.
         gamma:       Discount factor. 1.0 = no discounting (reward only at end).
         baseline:    If True, subtract a running mean reward baseline to reduce variance
+        batch_size:  Number of episodes to collect before each gradient update.
 
     Returns:
         List of per-episode rewards for plotting.
     """
     reward_history: list[float] = []
     running_mean: float = 0.0
+
+    # Accumulators for the current batch
+    batch_log_probs: list[torch.Tensor] = []
+    batch_returns: list[torch.Tensor] = []
+    episodes_in_batch = 0
 
     agent.model.train()
 
@@ -63,13 +71,11 @@ def train(
 
         _, player_reward, opponent_reward, _, player_team, _ = result
 
-        # Assign reward based on which team the agent was on
         reward = float(
             player_reward if agent.player_id in player_team else opponent_reward
         )
         reward_history.append(reward)
 
-        # Skip update if agent never played (e.g. wasn't the RL agent in this game)
         if not agent.trajectory:
             continue
 
@@ -80,23 +86,31 @@ def train(
         else:
             adjusted_reward = reward
 
-        # Compute discounted returns for each step.
-        # Since reward is only given at end of game, G_t = gamma^(T-t) * R_T.
+        # Discounted returns for each step in this episode
         T = len(agent.trajectory)
         returns = torch.tensor(
             [adjusted_reward * (gamma ** (T - 1 - t)) for t in range(T)],
             dtype=torch.float32,
         )
-
-        # Stack log probs from trajectory: shape (T,)
         log_probs = torch.stack([step["log_prob"] for step in agent.trajectory])
 
-        # REINFORCE loss: -E[log_prob * G]
-        loss = -(log_probs * returns).sum()
+        batch_log_probs.append(log_probs)
+        batch_returns.append(returns)
+        episodes_in_batch += 1
 
-        optimizer.zero_grad()
-        loss.backward()  # type: ignore[no-untyped-call]
-        optimizer.step()
+        if episodes_in_batch >= batch_size:
+            all_log_probs = torch.cat(batch_log_probs)
+            all_returns = torch.cat(batch_returns)
+
+            loss = -(all_log_probs * all_returns).sum() / episodes_in_batch
+
+            optimizer.zero_grad()
+            loss.backward()  # type: ignore[no-untyped-call]
+            optimizer.step()
+
+            batch_log_probs = []
+            batch_returns = []
+            episodes_in_batch = 0
 
         if episode % 100 == 0:
             mean_reward = sum(reward_history[-100:]) / max(
