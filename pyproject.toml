@@ -1,7 +1,7 @@
 [project]
 name = "omados"
 version = "0.1.0"
-description = "Add your description here"
+description = "A reinforcement-learning agent for the Bavarian card game Schafkopf (game engine + REINFORCE self-play)."
 readme = "README.md"
 requires-python = ">=3.10.4"
 dependencies = [
