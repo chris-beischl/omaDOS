@@ -3,8 +3,10 @@ REINFORCE training script.
 
 Usage:
     python scripts/train_reinforce.py
+    python scripts/train_reinforce.py --episodes 5000 --batch-size 64
 """
 
+import argparse
 import logging
 
 import torch
@@ -17,17 +19,24 @@ from omados.training.reinforce import train
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Hyperparameters ---
-N_EPISODES = 20_000
-HIDDEN_SIZE = 512
-DEPTH = 4
-LR = 1e-3
-GAMMA = 1.0
-BASELINE = True
-BATCH_SIZE = 32
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train a Schafkopf RL agent.")
+    parser.add_argument("--episodes", type=int, default=20_000)
+    parser.add_argument("--hidden-size", type=int, default=512)
+    parser.add_argument("--depth", type=int, default=4)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--gamma", type=float, default=1.0)
+    parser.add_argument("--no-baseline", action="store_true")
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--out", type=str, default="policy_net.pt")
+    return parser.parse_args()
+
+
+args = parse_args()
 
 # --- Setup ---
-model = PolicyNet(obs_size=OBS_SIZE, hidden_size=HIDDEN_SIZE, depth=DEPTH)
+model = PolicyNet(obs_size=OBS_SIZE, hidden_size=args.hidden_size, depth=args.depth)
 rl_agent = RLAgent(player_id=0, model=model)
 agents = [
     rl_agent,
@@ -36,23 +45,23 @@ agents = [
     RandomAgent(player_id=3),
 ]
 env = SchafkopfEnv(agents)
-optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
 # --- Train ---
 rewards = train(
     agent=rl_agent,
     env=env,
-    n_episodes=N_EPISODES,
+    n_episodes=args.episodes,
     optimizer=optimizer,
-    gamma=GAMMA,
-    baseline=BASELINE,
-    batch_size=BATCH_SIZE,
+    gamma=args.gamma,
+    baseline=not args.no_baseline,
+    batch_size=args.batch_size,
 )
 
 # --- Save ---
-torch.save(model.state_dict(), "policy_net.pt")
+torch.save(model.state_dict(), args.out)
 print(
     f"\nTraining complete. Mean reward (last 500): "
     f"{sum(rewards[-500:]) / min(len(rewards), 500):.4f}"
 )
-print("Model saved to policy_net.pt")
+print(f"Model saved to {args.out}")
