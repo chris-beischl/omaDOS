@@ -9,6 +9,7 @@ Usage:
 import argparse
 import logging
 
+import numpy as np
 import torch
 
 from omados.agents.random import RandomAgent
@@ -30,6 +31,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-baseline", action="store_true")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--out", type=str, default="policy_net.pt")
+    parser.add_argument(
+        "--save-rewards", type=str, default=None, help="Save rewards to .npy file"
+    )
     return parser.parse_args()
 
 
@@ -65,3 +69,6 @@ print(
     f"{sum(rewards[-500:]) / min(len(rewards), 500):.4f}"
 )
 print(f"Model saved to {args.out}")
+if args.save_rewards:
+    np.save(args.save_rewards, np.array(rewards))
+    print(f"Rewards saved to {args.save_rewards}")
